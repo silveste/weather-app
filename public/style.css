@@ -1,0 +1,14 @@
+
+svg {
+  display: block;
+  margin: 0 auto;
+  max-width: 85vw;
+  max-height: 85vh;
+  width: auto;
+  height: auto;
+}
+
+input {
+  margin: 0 auto 10px;
+  display: block;
+}
