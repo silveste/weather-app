@@ -2,8 +2,8 @@
 Requires the following env variables:
 API_KEY
 */
-const request = require('request');
 const express = require('express');
+const { getWeather } = require('./handlers/weather');
 const app = express();
 
 const PORT = process.env.PORT || 3000;
@@ -14,19 +14,12 @@ app.use(express.static(__dirname + '/public'));
 //app.use(bodyParser.json());
 
 app.get('/api', function(req, res){
-  console.log(process.env.API_KEY);
-  request(`https://api.darksky.net/forecast/${process.env.API_KEY}/53.9954493,-6.8981243`,
-    function(error, response ,body){
-      console.log('#################### ERRORS #####################################');
-      console.log('error:', error); // Print the error if one occurred
-      console.log('#################### RESPONSE & STATUS CODE #####################################');
-      console.log('statusCode:', response && response.statusCode); // Print the response status code if a response was received
-      console.log('#################### BODY #####################################');
-      body = JSON.parse(body);
-      console.log('body:', body); // Print the HTML for the Google homepage.
-      res.json(response.body);
-    }
-  );
+  getWeather({latitude: '53.9954493', longitude: '-6.8981243'}, Math.floor(Date.now()/1000))
+    .then( data => res.json(data))
+    .catch( (e) => {
+      console.error(e.message);
+      res.status(500).send('Internal Server Error');
+    });
 });
 
 app.get('/', function(req, res){

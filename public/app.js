@@ -20,6 +20,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
   //AJAX request
   d3.json('/api')
-    .then(data => console.log(data))
-    .catch(err => console.log(err));
+    .then(data => {
+      console.log('succeed');
+      console.log(data);
+    })
+    .catch(err => {
+      console.log('Error');
+      console.log(err);
+    });
 });
