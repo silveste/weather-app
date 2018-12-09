@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "description": "Weather app is the data visualiation assignment for the module CA682 Data Management and Visualisation of the course 2018/2019 GCAI1 Grad Cert in Artificial Intelligence at Dublin City University",
   "main": "index.js",
-  "engines" : {
-    "node": ">=7.6.0"
+  "engines": {
+    "node": ">=8.3.0"
   },
   "scripts": {
     "start-dev": "nodemon -r dotenv/config index.js // Requires nodemon library"
@@ -13,6 +13,7 @@
   "license": "ISC",
   "dependencies": {
     "express": "^4.16.4",
+    "nominatim-geocoder": "^0.1.4",
     "request": "^2.88.0",
     "request-promise-native": "^1.0.5"
   },
