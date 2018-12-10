@@ -8,9 +8,9 @@ requires 2 parameters:
 -loc: an object with longitude and latitude values
 -time: time string formated as UNIX time
 */
-const getWeather = function(loc, time){
+const getWeather = function(loc){
   let options = {
-    uri: `${api_url}/${process.env.API_KEY}/${loc.latitude},${loc.longitude},${time}`,
+    uri: `${api_url}/${process.env.API_KEY}/${loc.latitude},${loc.longitude}?exclude=currently,minutely,hourly,alerts,flags`,
     json: true
   };
   return request(options);

@@ -4,7 +4,6 @@ API_KEY
 */
 const express = require('express');
 const getWeather = require('./apis/darksky');
-//const { getCity, getLoc } = require('./apis/nominatim');
 const geocoder = require('./apis/nominatim');
 const app = express();
 
@@ -13,10 +12,9 @@ const HOSTNAME = process.env.HOSTNAME || 'http://localhost';
 
 app.use(express.static(__dirname + '/views'));
 app.use(express.static(__dirname + '/public'));
-//app.use(bodyParser.json());
 
 app.get('/weather/:lat,:long', function(req, res){
-  getWeather({latitude: req.params.lat, longitude: req.params.long}, Math.floor(Date.now()/1000))
+  getWeather({latitude: req.params.lat, longitude: req.params.long})
     .then( data => res.json(data))
     .catch( (e) => {
       console.error(e.message);
