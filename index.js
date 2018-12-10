@@ -32,7 +32,7 @@ app.get('/loc/:lat,:lon', function(req, res){
 });
 
 app.get('/city/:city', function(req, res){
-  geocoder.search({q: req.params.city})
+  geocoder.search({city: req.params.city, countrycodes: 'IE,GB'})
     .then( data => res.json(data))
     .catch( (e) => {
       console.error(e.message);
