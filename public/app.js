@@ -16,8 +16,8 @@ var irelandSVG = {
 };
 
 //Define an array with Ireland main cities
-const mainCities = ['Armagh', 'Athlone', 'Belfast', 'Derry', 'Donegal','Drogheda', 'Dublin', 'Galway',
-  'Kilkenny', 'Limerick','Tralee', 'Waterford', 'Westport'];
+const mainCities = ['Armagh', 'Athlone', 'Belfast', 'Cork', 'Derry', 'Donegal','Drogheda', 'Dublin', 'Galway',
+  'Kilkenny', 'Limerick', 'Sligo', 'Tralee', 'Waterford', 'Westport'];
 
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -36,7 +36,7 @@ document.addEventListener('DOMContentLoaded', function() {
         .attr('width', width)
         .attr('height', height)
         .attr('viewBox', xmlSVG.attr('viewBox'));
-      //irelandSVG.d3maproot =  irelandSVG.d3svg.select('#maproot');
+      irelandSVG.d3maproot =  irelandSVG.d3svg.select('#maproot');
 
       //Set onclick listener for detailed graphic
       irelandSVG.d3svg.on('click', function(){
@@ -44,10 +44,10 @@ document.addEventListener('DOMContentLoaded', function() {
         let geoCoords = getGeoCoords(imgCoords);
         console.log('Image Coords: ' + imgCoords[0] + ', ' +imgCoords[1]); //FOR TESTING PURPOSES
         console.log('Geo Coords: ' + geoCoords[0] + ', ' +geoCoords[1]); //FOR TESTING PURPOSES
-        let townName = callBackend(`/loc/${geoCoords[0]},${geoCoords[1]}`);
-        let weatherData = callBackend(`/weather/${geoCoords[0]},${geoCoords[1]}`);
-        weatherData.then(data => console.log(data));
-        let city = callBackend(`/city/Dublin`);
+        //let townName = callBackend(`/loc/${geoCoords[0]},${geoCoords[1]}`);
+        //let weatherData = callBackend(`/weather/${geoCoords[0]},${geoCoords[1]}`);
+        //weatherData.then(data => console.log(data));
+        //let city = callBackend(`/city/Dublin`);
       });
     });
 
@@ -88,7 +88,21 @@ function setMainCitiesWeather() {
   });
 
   //Once data is resolved set the icons in the map
-  Promise.all(promArr).then(res => console.log(res));
+  Promise.all(promArr).then(res => {
+    console.log(res);
+    console.log(irelandSVG.d3maproot);
+    irelandSVG.d3maproot
+      .selectAll('g.icon')
+      .data(res)
+      .enter()
+      .append('g')
+        .classed('icon',true)
+      .append('circle')
+        .attr('fill','black')
+        .attr('r',70)
+        .attr('cx', d => d.x)
+        .attr('cy', d => d.y);
+  });
 
 }
 
@@ -125,9 +139,9 @@ function callBackend(url){
   //AJAX request
   return d3.json(url)
     .then(data => {
-      //console.log(url);  //FOR TESTING PURPOSES
-      //console.log('succeed'); //FOR TESTING PURPOSES
-      //console.log(data); //FOR TESTING PURPOSES
+      console.log(url);  //FOR TESTING PURPOSES
+      console.log('succeed'); //FOR TESTING PURPOSES
+      console.log(data); //FOR TESTING PURPOSES
       return data;
     })
     .catch(err => {
