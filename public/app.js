@@ -19,12 +19,12 @@ var irelandSVG = {
 const mainCities = ['Armagh', 'Athlone', 'Belfast', 'Cork', 'Derry', 'Donegal','Drogheda', 'Dublin', 'Galway',
   'Kilkenny', 'Limerick', 'Sligo', 'Tralee', 'Waterford', 'Westport'];
 
+// Extract the container width and height that was computed by CSS.
+const canvas = document.getElementById('container');
+const canvasWidth = canvas.clientWidth;
+const canvasHeight = canvas.clientHeight;
 
 document.addEventListener('DOMContentLoaded', function() {
-  // Extract the container width and height that was computed by CSS.
-  const chartDiv = document.getElementById('container');
-  const width = chartDiv.clientWidth;
-  const height = chartDiv.clientHeight;
   //Set the map image into the DOM
   d3.xml('assets/map.svg')
     .then(xml => {
@@ -33,8 +33,8 @@ document.addEventListener('DOMContentLoaded', function() {
       htmlSVG.appendChild(xml.documentElement.getElementById('maproot'));
       //Select the SVG and stores in an object for future uses
       irelandSVG.d3svg = d3.select(htmlSVG)
-        .attr('width', width)
-        .attr('height', height)
+        .attr('width', canvasWidth)
+        .attr('height', canvasHeight)
         .attr('viewBox', xmlSVG.attr('viewBox'));
       irelandSVG.d3maproot =  irelandSVG.d3svg.select('#maproot');
 
@@ -55,53 +55,71 @@ document.addEventListener('DOMContentLoaded', function() {
   setMainCitiesWeather();
 });
 
-/*
-function manipulateSVG(){
-  d3.select('#container svg')
-    .on('click', function(){
-      let imgCoords = d3.mouse(this);
-      let geoCoords = getGeoCoords(imgCoords);
-      console.log('Image Coords: ' + imgCoords[0] + ', ' +imgCoords[1]); //FOR TESTING PURPOSES
-      console.log('Geo Coords: ' + geoCoords[0] + ', ' +geoCoords[1]); //FOR TESTING PURPOSES
-      let townName = callBackend(`/loc/${geoCoords[0]},${geoCoords[1]}`);
-      let weatherData = callBackend(`/weather/${geoCoords[0]},${geoCoords[1]}`);
-    });
-
-}
-*/
-
 function setMainCitiesWeather() {
 
   //Get the geo coordinates and img coordinates for every city
   const promArr = mainCities.map( city => {
-    return callBackend(`/city/${city}`)
-      .then(data => {
-        let imgCoords = getImgCoords([data[0].lat,data[0].lon]);
-        return {
+
+    //1st call the backend to retrieve cities coordinates from Nominatim API
+    let locPromise = callBackend(`/city/${city}`);
+
+    //2nd call the backend to retrieve weather data for every city
+    let weatherPromise = locPromise.then((locData) => {
+      return callBackend(`/weather/${locData[0].lat},${locData[0].lon}`);
+    });
+
+    //Set the weather icon
+    let iconPromise = weatherPromise.then(weatherData =>{
+      const promArr = weatherData.daily.data.map(dailyWeather => {
+        return  d3.xml(`assets/${dailyWeather.icon}.svg`)
+          .then(xml =>{
+            return xml.documentElement;
+          });
+      });
+      return Promise.all(promArr)
+        .then(result =>{
+          return weatherData.daily.data.map((dailyWeather, i) => {
+            return {
+              ...dailyWeather,
+              iconImg: result[i]
+            };
+          });
+        });
+    });
+
+    //Data is returned when both calls have been resolved
+    return Promise.all([locPromise,weatherPromise, iconPromise])
+      .then(result =>{
+        let locData = result[0];
+        let imgCoords = getImgCoords([locData[0].lat,locData[0].lon]);
+        let solved = {
           city,
-          lat: data[0].lat,
-          lon: data[0].lon,
+          lat: locData[0].lat,
+          lon: locData[0].lon,
           x: imgCoords[0],
-          y: imgCoords[1]
+          y: imgCoords[1],
+          dailyWeather: result[2]
         };
+        console.log(solved);
+        return solved;
       });
   });
 
-  //Once data is resolved set the icons in the map
+  //Once data is resolved, set the icons in the map
   Promise.all(promArr).then(res => {
-    console.log(res);
-    console.log(irelandSVG.d3maproot);
     irelandSVG.d3maproot
-      .selectAll('g.icon')
+      .selectAll('svg.icon')
       .data(res)
       .enter()
-      .append('g')
-        .classed('icon',true)
-      .append('circle')
-        .attr('fill','black')
-        .attr('r',70)
-        .attr('cx', d => d.x)
-        .attr('cy', d => d.y);
+      .append( d => d.dailyWeather[3].iconImg)
+      .attr('xmlns:svg', null)
+      .attr('xmlns', null)
+      .attr('version',null)
+      .attr('height',250)
+      .attr('width',250)
+      .classed('icon',true)
+      .attr('x', d => d.x - 125)
+      .attr('y', d => d.y - 125);
   });
 
 }
@@ -139,9 +157,9 @@ function callBackend(url){
   //AJAX request
   return d3.json(url)
     .then(data => {
-      console.log(url);  //FOR TESTING PURPOSES
-      console.log('succeed'); //FOR TESTING PURPOSES
-      console.log(data); //FOR TESTING PURPOSES
+      //console.log(url);  //FOR TESTING PURPOSES
+      //console.log('succeed'); //FOR TESTING PURPOSES
+      //console.log(data); //FOR TESTING PURPOSES
       return data;
     })
     .catch(err => {
