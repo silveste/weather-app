@@ -6,6 +6,11 @@
   height: 85vh;
 }
 
+#date-container {
+  margin: 0.5rem auto;
+  text-align: center;
+}
+
 svg {
   display: block;
   margin: 3px auto;
