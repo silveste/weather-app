@@ -44,16 +44,9 @@ document.addEventListener('DOMContentLoaded', function() {
         .attr('width', canvasWidth)
         .attr('height', canvasHeight)
         .attr('viewBox', xmlSVG.attr('viewBox'));
-      //Set onclick listener for detailed graphic
+      //Set onclick listener for add icons into the map
       irelandSVG.d3svg.on('click', function(){
-        let imgCoords = d3.mouse(this);
-        let geoCoords = getGeoCoords(imgCoords);
-        console.log('Image Coords: ' + imgCoords[0] + ', ' +imgCoords[1]); //FOR TESTING PURPOSES
-        console.log('Geo Coords: ' + geoCoords[0] + ', ' +geoCoords[1]); //FOR TESTING PURPOSES
-        //let townName = callBackend(`/loc/${geoCoords[0]},${geoCoords[1]}`);
-        //let weatherData = callBackend(`/weather/${geoCoords[0]},${geoCoords[1]}`);
-        //weatherData.then(data => console.log(data));
-        //let city = callBackend(`/city/Dublin`);
+        mapClicked(this);
       });
 
       //Set Today's Date
@@ -68,59 +61,120 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function getBulkData() {
-
   //Get the geo coordinates, img coordinates and weather conditions for every city
   var promArr = mainCities.map( city => {
-
-    //1st call the backend to retrieve cities coordinates from Nominatim API
-    let locPromise = callBackend(`/city/${city}`);
-
-    //2nd call the backend to retrieve weather data from darksky API
-    let weatherPromise = locPromise.then((locData) => {
-      return callBackend(`/weather/${locData[0].lat},${locData[0].lon}`)
-        .then(weatherData =>{
-          const promArr = weatherData.daily.data.map((weatherInf) => {
-            return  d3.xml(`assets/${weatherInf.icon}.svg`)
-              .then(xml =>{
-                return xml.documentElement;
-              })
-              .then(icon => {
-                weatherInf.icon = icon;
-                return weatherInf;
-              });
-          });
-          return Promise.all(promArr)
-            .then(result => {
-              return result.reduce((acc, weatherInf) => {
-                acc[weatherInf.time] = weatherInf;
-                delete acc[weatherInf.time].time;
-                return acc;
-              }, {});
-            });
-        });
-    });
-    //Data is returned when both calls have been resolved
-    return Promise.all([locPromise, weatherPromise])
-      .then(result =>{
-        let locData = result[0];
-        let imgCoords = getImgCoords([locData[0].lat,locData[0].lon]);
-        let solved = {
-          city,
-          lat: locData[0].lat,
-          lon: locData[0].lon,
-          x: imgCoords[0],
-          y: imgCoords[1],
-          days: result[1]
-        };
-        //console.log(solved); //FOR TESTING PURPOSES
-        return solved;
+    //Retrieve cities coordinates from Nominatim API
+    let CityInfoPromise = getCityInfoPromise(city)
+      .then(cityInfo => {
+        cityInfo.place = city;
+        return cityInfo;
       });
+    //Retrieve weather data from darksky API
+    let weatherPromise = CityInfoPromise.then((cityInfo) => {
+      return getWeatherPromise(cityInfo.lat,cityInfo.lon);
+    });
+    return mergeDataPromise([CityInfoPromise,weatherPromise]);
   });
   Promise.all(promArr).then(res =>{
     mainData = res;
-    console.log(mainData); //FOR TESTING PURPOSES
+    //console.log(mainData); //FOR TESTING PURPOSES
     setIcons();
   });
+}
+
+function mapClicked(d3Element){
+  let imgCoords = d3.mouse(d3Element);
+  let geoCoords = getGeoCoords(imgCoords);
+  let locInfoPromise = getLocInfoPromise(...geoCoords)
+    .then(locData =>{
+      locData.xCoord = imgCoords[0];
+      locData.yCoord = imgCoords[1];
+      //console.log(locData); //FOR TESTING PURPOSES
+      return locData;
+    });
+  let weatherPromise = locInfoPromise.then((cityInfo) => {
+    return getWeatherPromise(cityInfo.lat,cityInfo.lon);
+  });
+  mergeDataPromise([locInfoPromise,weatherPromise])
+    .then(res => {
+      mainData.push(res);
+      console.log(mainData); //FOR TESTING PURPOSES
+      setIcons();
+    });
+}
+
+function getCityInfoPromise(city){
+  return callBackend(`/city/${city}`)
+    .then(cityData =>{
+      cityData = cityData[0];
+      let imgCoords = getImgCoords([cityData.lat,cityData.lon]);
+      cityData.xCoord = imgCoords[0];
+      cityData.yCoord = imgCoords[1];
+      //console.log(cityData);//TESTING PURPOSES
+      return cityData;
+    });
+}
+
+function getLocInfoPromise(lat,lon){
+  return callBackend(`/loc/${lat},${lon}`)
+    .then(locData =>{
+      if (locData.error) {
+        throw locData.error;
+      }
+      let response = {
+        lat: locData.lat,
+        lon: locData.lon,
+        place: locData.address.city || locData.address.county|| locData.address.state || locData.address.contry
+      };
+      //console.log(response); //FOR TESTING PURPOSES
+      return response;
+    })
+    .catch((err) => {
+      console.log(err);
+    });
+}
+
+
+function getWeatherPromise(lat, lon) {
+  return callBackend(`/weather/${lat},${lon}`)
+    .then(weatherData =>{
+      const promArr = weatherData.daily.data.map((weatherInf) => {
+        return  d3.xml(`assets/${weatherInf.icon}.svg`)
+          .then(xml =>{
+            return xml.documentElement;
+          })
+          .then(icon => {
+            weatherInf.icon = icon;
+            return weatherInf;
+          });
+      });
+      return Promise.all(promArr)
+        .then(result => {
+          //console.log(result); //TESTING PURPOSES
+          return result.reduce((acc, weatherInf) => {
+            acc[weatherInf.time] = weatherInf;
+            delete acc[weatherInf.time].time;
+            return acc;
+          }, {});
+        });
+    });
+}
+
+function mergeDataPromise(promArray){
+  return Promise.all(promArray)
+    .then(result =>{
+      let cityData = result[0];
+      let solved = {
+        place: cityData.place,
+        lat: cityData.lat,
+        lon: cityData.lon,
+        x: cityData.xCoord,
+        y: cityData.yCoord,
+        days: result[1]
+      };
+      //console.log(solved); //FOR TESTING PURPOSES
+      return solved;
+    });
 }
 
 function setIcons(){
@@ -133,7 +187,7 @@ function setIcons(){
 
   let d3Enter = irelandSVG.d3svg.select('#maproot')
     .selectAll('svg.icon')
-    .data(mainData)
+    .data(mainData, (d) => d.place) //DOM elements are matched with data through place name
     .enter();
 
   d3Enter.merge(d3Update)
@@ -145,7 +199,12 @@ function setIcons(){
     .attr('width',250)
     .classed('icon',true)
     .attr('x', d => d.x - 125)
-    .attr('y', d => d.y - 125);
+    .attr('y', d => d.y - 125)
+    .on('click', (d, i) => { //By clicking the element will be removed
+      d3.event.stopPropagation();
+      mainData.splice(i,1);
+      setIcons();
+    });
 }
 
 //helper that accept an array of image coords [x,y] and returns and array of geo coords [lat,lon]
