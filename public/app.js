@@ -57,6 +57,16 @@ document.addEventListener('DOMContentLoaded', function() {
       document.querySelector('#forward').onclick = function(){changeDay('setTomorrow');};
       UpdateDay(new Date());
 
+      //Set search listener
+      document.querySelector('#search-button').onclick = function(){
+        search(document.querySelector('#search-input').value);
+      };
+
+      //The search button is activated when input has content
+      document.querySelector('#search-input').oninput = function(){
+        document.querySelector('#search-button').disabled = !this.textLength;
+      };
+
       //getBulkData gets the data for the for the cities specified in mainCities when
       //the page load for the first time
       getBulkData();
@@ -85,7 +95,7 @@ function getBulkData() {
   });
   Promise.all(promArr).then(res =>{
     mainData = res;
-    console.log(mainData); //FOR TESTING PURPOSES
+    //console.log(mainData); //FOR TESTING PURPOSES
     setIcons();
   });
 }
@@ -106,6 +116,29 @@ function mapClicked(d3Element){
   mergeDataPromise([locInfoPromise,weatherPromise])
     .then(res => {
       mainData.push(res);
+      //console.log(mainData); //FOR TESTING PURPOSES
+      setIcons();
+    })
+    .catch(err => console.log(err));
+}
+
+function search(query){
+  //Retrieve city coordinates from Nominatim API
+  let CityInfoPromise = getCityInfoPromise(query)
+    .then(cityInfo => {
+      if(cityInfo instanceof Error){
+        alert(cityInfo);
+        return;
+      }
+      cityInfo.place = query.replace(/\b\w/g, (chr) => chr.toUpperCase());
+      return cityInfo;
+    });
+  let weatherPromise = CityInfoPromise.then((cityInfo) => {
+    return getWeatherPromise(cityInfo.lat,cityInfo.lon);
+  });
+  mergeDataPromise([CityInfoPromise,weatherPromise])
+    .then( res => {
+      mainData.push(res);
       console.log(mainData); //FOR TESTING PURPOSES
       setIcons();
     });
@@ -120,7 +153,8 @@ function getCityInfoPromise(city){
       cityData.yCoord = imgCoords[1];
       //console.log(cityData);//TESTING PURPOSES
       return cityData;
-    });
+    })
+    .catch(() => new Error(`I can't find ${city}`));
 }
 
 function getLocInfoPromise(lat,lon){
