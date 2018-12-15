@@ -1,5 +1,6 @@
-#------------NODE JS---------------------------------
-# Logs
+#weather cache
+weather.json
+#Logs
 logs
 *.log
 npm-debug.log*
