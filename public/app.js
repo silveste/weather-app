@@ -60,6 +60,8 @@ document.addEventListener('DOMContentLoaded', function() {
       //Set search listener
       document.querySelector('#search-button').onclick = function(){
         search(document.querySelector('#search-input').value);
+        document.querySelector('#search-input').value = null;
+        this.disabled = true;
       };
 
       //The search button is activated when input has content
