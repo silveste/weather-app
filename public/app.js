@@ -3,7 +3,7 @@
 
 //define an object with map of ireland properties
 var irelandSVG = {
-  d3svg: null,
+  d3svg: undefined,
   //d3maproot: null,
   mapDimensions: {
     north: 55.6,
@@ -15,10 +15,13 @@ var irelandSVG = {
   }
 };
 
+//Tooltip object, will appear when user hovers an icons
+var tooltip;
+
 //Define today and day showed in document;
 var date = {
-  day: null,
-  today:null
+  day: undefined,
+  today: undefined
 };
 //Define object that contains all Data
 var mainData = {};
@@ -58,6 +61,11 @@ document.addEventListener('DOMContentLoaded', function() {
       //the page load for the first time
       getBulkData();
     });
+
+  //Tooltip, when the user hovers over an Icon, a tool tip shows more information
+  tooltip = d3.select('body')
+    .append('div')
+    .classed('tooltip', true);
 });
 
 function getBulkData() {
@@ -77,7 +85,7 @@ function getBulkData() {
   });
   Promise.all(promArr).then(res =>{
     mainData = res;
-    //console.log(mainData); //FOR TESTING PURPOSES
+    console.log(mainData); //FOR TESTING PURPOSES
     setIcons();
   });
 }
@@ -203,7 +211,31 @@ function setIcons(){
     .on('click', (d, i) => { //By clicking the element will be removed
       d3.event.stopPropagation();
       mainData.splice(i,1);
+      tooltip
+        .style('opacity', 0);
       setIcons();
+    })
+    .on('mouseover', (d) => { //Hovering over the icon show a tooltip with information
+      tooltip
+        .style('opacity', 1)
+        .append('p')
+        .style('font-weight', 'bold')
+        .text(d.place);
+      tooltip
+        .append('p')
+        .classed('city', true)
+        .text(d.days[currentDay].summary);
+    })
+    .on('mousemove', () => { //The toltip changes position depending on the mouse
+      tooltip
+        .style('left', d3.event.x - (tooltip.node().offsetWidth / 2) +'px')
+        .style('top', d3.event.y + 25 + 'px');
+    })
+    .on('mouseout', () =>{
+      tooltip
+        .style('opacity', 0)
+        .selectAll('p')
+        .remove();
     });
 }
 
