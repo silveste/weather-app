@@ -10,13 +10,20 @@ requires 2 parameters:
 -time: time string formated as UNIX time
 */
 const getWeather = function(loc){
+  const msecDay = 86400000;
+  var startDay = new Date(Date.now() - (Date.now() % msecDay));
   let reqResponse;
   try {
-    let fileContent = fs.readFileSync('./weather.json');
+    let fileContent = fs.readFileSync('./cache.json');
     data = JSON.parse(fileContent);
-    reqResponse = data[`${loc.latitude}-${loc.longitude}`];
+    if(data.date != startDay.getTime()){
+      console.log('true');
+      data = {date: startDay.getTime()};
+    } else {
+      reqResponse = data[`${loc.latitude}-${loc.longitude}`];
+    }
   } catch (err) {
-    console.log(err);
+    console.log(err.message);
   }
   if(reqResponse){
     console.log('Cached weather data');
@@ -26,13 +33,14 @@ const getWeather = function(loc){
   } else {
     console.log('Weather data from API');
     let options = {
-      uri: `${api_url}/${process.env.API_KEY}/${loc.latitude},${loc.longitude}?exclude=currently,minutely,hourly,alerts,flags`,
+      uri: `${api_url}/${process.env.API_KEY}/${loc.latitude},${loc.longitude}?exclude=currently,minutely,hourly,alerts,flags&units=ca`,
       json: true
     };
+    console.log(options.uri);
     let reqPromise = request(options);
     reqPromise.then(d => {
       data[`${loc.latitude}-${loc.longitude}`] = d;
-      fs.writeFile('./weather.json', JSON.stringify(data), 'utf8', (err) => {
+      fs.writeFile('./cache.json', JSON.stringify(data), 'utf8', (err) => {
         if(err){
           console.log(err);
         }
