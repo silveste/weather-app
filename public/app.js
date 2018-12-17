@@ -12,6 +12,7 @@ var irelandSVG = {
     east: -5.0,
     imgHeight: 1807.0706,
     imgWidth: 1449.8049,
+    imgRel: 1449.8049/1807.0706
   }
 };
 
@@ -30,12 +31,8 @@ var mainData = {};
 const mainCities = ['Armagh', 'Athlone', 'Belfast', 'Cork', 'Derry', 'Donegal','Drogheda', 'Dublin', 'Galway',
   'Kilkenny', 'Limerick', 'Sligo', 'Tralee', 'Waterford', 'Westport'];
 
-// Extract the container width and height that was computed by CSS.
-const canvas = document.getElementById('container');
-const canvasWidth = canvas.clientWidth;
-const canvasHeight = canvas.clientHeight;
-
 document.addEventListener('DOMContentLoaded', function() {
+
   //Set the map image into the DOM
   d3.xml('assets/map.svg')
     .then(xml => {
@@ -44,9 +41,9 @@ document.addEventListener('DOMContentLoaded', function() {
       htmlSVG.appendChild(xml.documentElement.getElementById('maproot'));
       //Select the SVG and stores in an object for future uses
       irelandSVG.d3svg = d3.select(htmlSVG)
-        .attr('width', canvasWidth)
-        .attr('height', canvasHeight)
         .attr('viewBox', xmlSVG.attr('viewBox'));
+      //Set svg size.
+      setSize(irelandSVG.d3svg, 0.85, irelandSVG.mapDimensions.imgRel);
       //Set onclick listener for add icons into the map
       irelandSVG.d3svg.on('click', function(){
         mapClicked(this);
@@ -73,12 +70,44 @@ document.addEventListener('DOMContentLoaded', function() {
       //the page load for the first time
       getBulkData();
     });
-
   //Tooltip, when the user hovers over an Icon, a tool tip shows more information
   tooltip = d3.select('body')
     .append('div')
     .classed('tooltip', true);
+  setSize(tooltip, 0.50, 1, true);
 });
+
+window.addEventListener('resize', function() {
+  setSize(irelandSVG.d3svg, 0.85, irelandSVG.mapDimensions.imgRel);
+  setSize(tooltip, 0.50, 1, true);
+});
+//Resize a d3 element to be a percentage X for the shorter
+//axis of the body
+//Ratio indicates the size from 0 to 1
+//Relation indicates the desired relation width/height of the element
+function setSize(d3element, ratio, relation, widthOnly = false){
+  //get body width and height
+  let width = d3.select('body').node().clientWidth;
+  let height = d3.select('body').node().clientHeight;
+
+  //Determine best fit for the map
+  let bodyRel = width/height;
+  if(bodyRel <= relation) {
+    width *= ratio;
+    height = width/relation;
+  }  else {
+    height *=ratio;
+    width = height*relation;
+  }
+  d3element
+    .attr('width', width)
+    .style('width', Math.floor(width) + 'px');
+  if (!widthOnly) {
+    d3element
+      .attr('height', height)
+      .style('height', Math.floor(height) + 'px');
+  }
+}
 
 function getBulkData() {
   //Get the geo coordinates, img coordinates and weather conditions for every city
@@ -97,7 +126,7 @@ function getBulkData() {
   });
   Promise.all(promArr).then(res =>{
     mainData = res;
-    //console.log(mainData); //FOR TESTING PURPOSES
+    console.log(mainData); //FOR TESTING PURPOSES
     setIcons();
   });
 }
@@ -118,7 +147,7 @@ function mapClicked(d3Element){
   mergeDataPromise([locInfoPromise,weatherPromise])
     .then(res => {
       mainData.push(res);
-      //console.log(mainData); //FOR TESTING PURPOSES
+      console.log(mainData); //FOR TESTING PURPOSES
       setIcons();
     })
     .catch(err => console.log(err));
@@ -132,7 +161,7 @@ function search(query){
         alert(cityInfo);
         return;
       }
-      cityInfo.place = query.replace(/\b\w/g, (chr) => chr.toUpperCase());
+      cityInfo.place = query.toLowerCase().replace(/\b\w/g, (chr) => chr.toUpperCase());
       return cityInfo;
     });
   let weatherPromise = CityInfoPromise.then((cityInfo) => {
@@ -248,10 +277,24 @@ function setIcons(){
       d3.event.stopPropagation();
       mainData.splice(i,1);
       tooltip
-        .style('opacity', 0);
+        .style('opacity', 0)
+        .selectAll('*')
+        .remove();
       setIcons();
     })
     .on('mouseover', (d) => { //Hovering over the icon show a tooltip with information
+      let daysArr = Object.entries(d.days).sort((a,b) => a[0] - b[0]);
+      console.log(daysArr);
+      let maxTemp = Math.ceil(d3.max(daysArr, d=> d[1].temperatureMax)/5)*5;
+      let minTemp = Math.floor(d3.min(daysArr, d=> d[1].temperatureMin)/5)*5;
+      let tempScale = d3.scaleLinear()
+        .domain([maxTemp, minTemp])
+        .range([150, 700]);
+      let maxPrec = Math.ceil(d3.max(daysArr, d=> d[1].precipIntensity));
+      let precScale = d3.scaleLinear()
+        .domain([maxPrec, 0])
+        .range([150, 700]);
+
       tooltip
         .style('opacity', 1)
         .append('p')
@@ -261,18 +304,319 @@ function setIcons(){
         .append('p')
         .classed('city', true)
         .text(d.days[currentDay].summary);
+
+      let svgtt = tooltip
+        .append('svg');
+      let ttSvgEnt = svgtt
+        .attr('version', '1.1')
+        .attr('baseProfile', 'full')
+        .attr('xmlns', 'http://www.w3.org/2000/svg')
+        .attr('viewBox', '0 0 1000 1000')
+        .classed('chart', true)
+        .selectAll('g')
+        .data(daysArr, d => d[0])
+        .enter();
+      //Chart spacer between days
+      ttSvgEnt
+        .filter((d, i) => i != 0 )
+        .append('line')
+        .attr('x1', (d, i) => 200 + i*100)
+        .attr('x2', (d, i) => 200 + i*100)
+        .attr('y1', 100)
+        .attr('y2', 900)
+        .classed('chart-line',true);
+      //Chart icons
+      ttSvgEnt
+        .append(d => d[1].icon.cloneNode(true))
+        .attr('xmlns:svg', null)
+        .attr('xmlns', null)
+        .attr('version',null)
+        .attr('height',100)
+        .attr('width',100)
+        .attr('viewBox', '50 50 400 400')
+        .classed('icon',true)
+        .attr('x', (d, i) => 100 + 100*i)
+        .attr('y', 50);
+      //Prec bars
+      ttSvgEnt
+        .append('rect')
+        .attr('x', (d,i) => 102 + 100*i)
+        .attr('width', 96)
+        .attr('y',d => precScale(d[1].precipIntensity))
+        .attr('height', d => 700 - precScale(d[1].precipIntensity) + 150)
+        .classed('prec-bar', true);
+      //Temperature bars
+      ttSvgEnt
+        .append('rect')
+        .attr('x', (d,i) => 110 + 100*i)
+        .attr('width', 80)
+        .attr('y',d => tempScale(d[1].temperatureMax))
+        .attr('height', d => tempScale(d[1].temperatureMin) - tempScale(d[1].temperatureMax) + 150)
+        .attr('rx', 40)
+        .attr('ry', 40)
+        .classed('temperature-bar', true);
+      //Max temperature text
+      ttSvgEnt
+        .append('text')
+        .attr('x', (d,i) => 150 + 100*i)
+        .attr('textLength', 50)
+        .attr('font-size', 25)
+        .style('alingment-baseline', 'hanging')
+        .style('dominant-baseline', 'hanging')
+        .style('fill', '#f00')
+        .attr('y', d => tempScale(d[1].temperatureMax) + 30)
+        .classed('temp-text', true)
+        .text(d => Math.floor(d[1].temperatureMax) + 'ºC');
+      //Min temperature text
+      ttSvgEnt
+        .append('text')
+        .attr('x', (d,i) => 150 + 100*i)
+        .attr('textLength', 50)
+        .attr('font-size', 25)
+        .style('alingment-baseline', 'baseline')
+        .style('dominant-baseline', 'baseline')
+        .style('fill', '#00f')
+        .attr('y', d => tempScale(d[1].temperatureMin) +(150 - 30))
+        .classed('temp-text', true)
+        .text(d => Math.floor(d[1].temperatureMin) + 'ºC');
+      //Days Text
+      ttSvgEnt
+        .append('text')
+        .attr('x', (d,i) => 150 + 100*i)
+        .attr('textLength', 70)
+        .attr('font-size', 25)
+        .style('alingment-baseline', 'hanging')
+        .style('dominant-baseline', 'hanging')
+        .style('fill', '#444')
+        .attr('y', 850)
+        .classed('day-text', true)
+        .text(d => {
+          let date = new Date(d[0]*1000);
+          let days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+          return days[date.getDay()];
+        });
+      //Prec axis
+      svgtt
+        .append('line')
+        .attr('x1', 900)
+        .attr('x2', 900)
+        .attr('y1', 150)
+        .attr('y2', 850)
+        .classed('chart-axis',true);
+      svgtt
+        .append('line')
+        .attr('x1', 895)
+        .attr('x2', 910)
+        .attr('y1', 150)
+        .attr('y2', 150)
+        .classed('chart-axis',true);
+      svgtt
+        .append('line')
+        .attr('x1', 895)
+        .attr('x2', 910)
+        .attr('y1', 850)
+        .attr('y2', 850)
+        .classed('chart-axis',true);
+      svgtt
+        .append('text')
+        .attr('x', 910)
+        .attr('textLength', 50)
+        .attr('font-size', 25)
+        .style('alingment-baseline', 'baseline')
+        .style('dominant-baseline', 'baseline')
+        .style('text-anchor', 'start')
+        .style('fill', '#444')
+        .attr('y', 145)
+        .text(maxPrec);
+      svgtt
+        .append('text')
+        .attr('x', 910)
+        .attr('textLength', 75)
+        .attr('font-size', 25)
+        .style('alingment-baseline', 'hanging')
+        .style('dominant-baseline', 'hanging')
+        .style('text-anchor', 'start')
+        .style('fill', '#444')
+        .attr('y', 150)
+        .text('mm/h');
+      svgtt
+        .append('text')
+        .attr('x', 910)
+        .attr('textLength', 50)
+        .attr('font-size', 25)
+        .style('alingment-baseline', 'middle')
+        .style('dominant-baseline', 'middle')
+        .style('text-anchor', 'start')
+        .style('fill', '#444')
+        .attr('y', 845)
+        .text('0');
+      svgtt
+        .append('text')
+        .attr('x', 910)
+        .attr('textLength', 75)
+        .attr('font-size', 25)
+        .style('alingment-baseline', 'hanging')
+        .style('dominant-baseline', 'hanging')
+        .style('text-anchor', 'start')
+        .style('fill', '#444')
+        .attr('y', 850)
+        .text('mm/h');
+
+      //Temperature Axis
+      svgtt
+        .append('line')
+        .attr('x1', 100)
+        .attr('x2', 100)
+        .attr('y1', 150)
+        .attr('y2', 850)
+        .classed('chart-axis',true);
+      svgtt
+        .append('line')
+        .attr('x1', 90)
+        .attr('x2', 105)
+        .attr('y1', 150)
+        .attr('y2', 150)
+        .classed('chart-axis',true);
+      svgtt
+        .append('line')
+        .attr('x1', 90)
+        .attr('x2', 105)
+        .attr('y1', 850)
+        .attr('y2', 850)
+        .classed('chart-axis',true);
+      svgtt
+        .append('text')
+        .attr('x', 85)
+        .attr('textLength', 50)
+        .attr('font-size', 25)
+        .style('alingment-baseline', 'middle')
+        .style('dominant-baseline', 'middle')
+        .style('text-anchor', 'end')
+        .style('fill', '#444')
+        .attr('y', 150)
+        .text(maxTemp + 'ºC');
+      svgtt
+        .append('text')
+        .attr('x', 85)
+        .attr('textLength', 50)
+        .attr('font-size', 25)
+        .style('alingment-baseline', 'middle')
+        .style('dominant-baseline', 'middle')
+        .style('text-anchor', 'end')
+        .style('fill', '#444')
+        .attr('y', 850)
+        .text(minTemp + 'ºC');
+
     })
-    .on('mousemove', () => { //The toltip changes position depending on the mouse
-      tooltip
-        .style('left', d3.event.x - (tooltip.node().offsetWidth / 2) +'px')
-        .style('top', d3.event.y + 25 + 'px');
+    .on('mousemove', () => { //The toltip changes position depending on the mouse 'mousemove'
+      setToolTipPos(d3.event.x,d3.event.y);
     })
     .on('mouseout', () =>{
       tooltip
         .style('opacity', 0)
-        .selectAll('p')
+        .selectAll('*')
         .remove();
     });
+}
+
+//Set the tooltip position in relation with the icon position and the space available
+function setToolTipPos(iconX,iconY){
+  //get body bounding client rect
+  let bodyDOMRect = d3.select('body').node().getBoundingClientRect();
+  //get body visible width and height
+  let bodyW = bodyDOMRect.width;
+  let bodyH = bodyDOMRect.height;
+
+  //Distances from the icon to the viewport borders
+  let dist = {
+    top: iconY,
+    right: bodyW - iconX,
+    bottom: bodyH - iconY,
+    left: iconX
+  };
+  let ttWidth = tooltip.node().getBoundingClientRect().width;
+  let ttHeight = tooltip.node().getBoundingClientRect().height;
+  /*
+  Pos will get the following values to determine the position of the viewBox in relation with the icon
+  units are related with horizontal position, 0 = left, 1 = center, 2 = right
+  Tenhs are related with vertical position, 00 = top, 10 = center, 20 = bottom
+  */
+  let pos = 0;
+  /*
+  The tooltip will be placed with one border matching the icon, and in the area that has maximum space
+  The box can match the icon through 8 positions (top-left,top-center,top-right,center-left,
+  center-right, bottom-left and bottom-right)
+  The best position is where the distance to the opposite borders is maximum after placing the box
+  */
+  //Horizontal position
+  let left = (dist.right - ttWidth) * dist.left;
+  let right = (dist.left - ttWidth) * dist.right;
+  let centerH = (dist.left -ttWidth/2) * (dist.right - ttWidth/2);
+  let horizontal = [left,centerH,right];
+  pos += horizontal.indexOf(Math.max(...horizontal));
+
+  //Vertical
+  let top = (dist.bottom - ttHeight) * dist.top;
+  let bottom = (dist.top - ttHeight) * dist.bottom;
+  let centerV = dist.top + dist.bottom - ttHeight;
+  let vertical = [top, centerV, bottom];
+  pos += vertical.indexOf(Math.max(...vertical))*10;
+
+  //Fix when pos = 11
+  if (pos == 11 && bodyH >= bodyW) {
+    pos = (dist.top <= dist.bottom)? 1:21;
+  } else if (pos == 11 && bodyH < bodyW) {
+    pos = (dist.left <= dist.right)? 10:12;
+  }
+  let x, y, cl;
+  switch (pos) {
+  case 0:
+    y = iconY + 10 + 'px';
+    x = iconX - 25 + 'px';
+    cl = 'top-left';
+    break;
+  case 1:
+    y = iconY + 10 + 'px';
+    x = iconX - (ttWidth / 2) +'px';
+    cl = 'top-center';
+    break;
+  case 2:
+    y = iconY + 10 + 'px';
+    x = iconX - (ttWidth) + 25 +'px';
+    cl = 'top-right';
+    break;
+  case 10:
+    y = iconY - (ttHeight / 2) +'px';
+    x = iconX + 10 + 'px';
+    cl = 'center-left';
+    break;
+  case 12:
+    y = iconY - (ttHeight / 2) +'px';
+    x = iconX - (ttWidth) - 10 + 'px';
+    cl = 'center-right';
+    break;
+  case 20:
+    y = iconY - (ttHeight) - 10 +'px';
+    x = iconX - 25 + 'px';
+    cl = 'bottom-left';
+    break;
+  case 21:
+    y = iconY - (ttHeight) - 10 +'px';
+    x = iconX - (ttWidth / 2) +'px';
+    cl = 'bottom-center';
+    break;
+  case 22:
+    y = iconY - (ttHeight) - 10 +'px';
+    x = iconX - (ttWidth) + 25 + 'px';
+    cl = 'bottom-right';
+    break;
+  }
+
+  tooltip
+    .style('left', x)
+    .style('top', y)
+    .attr('class', 'tooltip')
+    .classed(cl, true);
 }
 
 //helper that accept an array of image coords [x,y] and returns and array of geo coords [lat,lon]
@@ -360,8 +704,3 @@ function callBackend(url){
       console.log(err); //FOR TESTING PURPOSES
     });
 }
-
-
-
-
-//Get main

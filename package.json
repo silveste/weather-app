@@ -23,6 +23,6 @@
     "eslint-plugin-node": "^8.0.0"
   },
   "nodemonConfig": {
-    "ignore": ["cache.json"]
+    "ignore": ["cache.json", "public/*"]
   }
 }
