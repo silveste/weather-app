@@ -64,7 +64,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
       //The search button is activated when input has content
       document.querySelector('#search-input').oninput = function(){
-        document.querySelector('#search-button').disabled = !this.textLength;
+        document.querySelector('#search-button').disabled = this.textContent !== "";
       };
 
       //getBulkData gets the data for the for the cities specified in mainCities when
