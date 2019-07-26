@@ -52,7 +52,8 @@ document.addEventListener('DOMContentLoaded', function() {
       //Set Today's Date
       document.querySelector('#back').onclick = function(){changeDay('setYesterday');};
       document.querySelector('#forward').onclick = function(){changeDay('setTomorrow');};
-      UpdateDay(new Date());
+      const today = new Date(Date.now() - (Date.now()%86400000) + new Date(Date.now()).getTimezoneOffset()*60000).getTime();
+      UpdateDay(today);
 
       //Set search listener
       document.querySelector('#search-button').onclick = function(){
@@ -284,7 +285,7 @@ function setIcons(){
     })
     .on('mouseover', (d) => { //Hovering over the icon show a tooltip with information
       let daysArr = Object.entries(d.days).sort((a,b) => a[0] - b[0]);
-      console.log(daysArr);
+      //console.log(daysArr); //For testing purposes
       let maxTemp = Math.ceil(d3.max(daysArr, d=> d[1].temperatureMax)/5)*5;
       let minTemp = Math.floor(d3.min(daysArr, d=> d[1].temperatureMin)/5)*5;
       let tempScale = d3.scaleLinear()
@@ -647,13 +648,11 @@ function getImgCoords(geoCoords){
 
 //Update all DOM elements that depends on date, requires a Date object as a parameter
 function UpdateDay(day){
-  //Day must start at 00:00:00
-  let dayMsec = day.getTime() % 86400000;
-  date.day = new Date(day.getTime() - dayMsec);
+  date.day = day;
   if(!date.today){ //required when initialising the page
     date.today = date.day;
   }
-  document.getElementById('date').textContent = day.toLocaleString('en-GB',{
+  document.getElementById('date').textContent = new Date(day).toLocaleString('en-GB',{
     weekday: 'long',
     year: 'numeric',
     month: 'long',
@@ -663,7 +662,7 @@ function UpdateDay(day){
   let bck = document.querySelector('#back');
   fwd.disabled = false;
   bck.disabled = false;
-  let diffDays = date.day.getTime() - date.today.getTime();
+  let diffDays = date.day - date.today;
   if (diffDays === 0){
     bck.disabled = true;
   }
@@ -674,7 +673,7 @@ function UpdateDay(day){
 }
 
 function changeDay(action){
-  let dayInt = date.day.getTime();
+  let dayInt = date.day;
   const msecDay = 86400000;
   switch (action) {
   case ('setYesterday'):
@@ -684,7 +683,7 @@ function changeDay(action){
     dayInt += msecDay;
     break;
   }
-  UpdateDay(new Date(dayInt));
+  UpdateDay(dayInt);
 }
 //helper that manages all calls to the backend to retrieve data from darksky (weather data)
 //and nominatim (cities and position data)

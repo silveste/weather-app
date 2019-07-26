@@ -11,7 +11,8 @@ requires 2 parameters:
 */
 const getWeather = function(loc){
   const msecDay = 86400000;
-  var startDay = new Date(Date.now() - (Date.now() % msecDay));
+  const timeZoneOffsetMS = new Date(Date.now()).getTimezoneOffset()*60000;
+  var startDay = new Date(Date.now() - (Date.now() % msecDay) + timeZoneOffsetMS);
   let reqResponse;
   try {
     let fileContent = fs.readFileSync('./cache.json');
