@@ -12,7 +12,7 @@
   "author": "Antonio Fernandez",
   "license": "ISC",
   "dependencies": {
-    "express": "^4.16.4",
+    "express": "^4.17.3",
     "nominatim-geocoder": "^0.1.4",
     "request": "^2.88.0",
     "request-promise-native": "^1.0.5"
